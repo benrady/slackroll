@@ -2,3 +2,9 @@
 dist
 working
 master
+.cache
+.deps
+.testdeps
+__pycache__
+*.pyc
+archive.zip

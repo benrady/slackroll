@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 abspath="$(cd "${0%/*}" 2>/dev/null; echo "$PWD"/"${0##*/}")"
-root_dir=`dirname "$abspath"`
+bin_dir=`dirname "$abspath"`
+root_dir=`dirname $bin_dir`
 app_name=learnjs
 code_bucket=${app_name}/_code_bundles
 profile=admin
@@ -20,13 +21,6 @@ function check_aws() {
   fi
   if ! aws configure list --profile $profile > /dev/null; then
     echo "Run \`aws configure --profile $profile\` to create it"
-    exit 1
-  fi
-}
-
-function check_node_deps() {
-  if ! which npm > /dev/null; then
-    echo "This action requires Node.js and NPM."
     exit 1
   fi
 }
@@ -187,39 +181,12 @@ function create_table() {
     --policy-name ${table_name}_table_access
 }
 
-function build_bundle() {
-  check_node_deps
-  pushd services
-  rm archive.zip
-  npm install || exit 1
-  mkdir -p dist
-  cp -r node_modules dist/
-  cp -r lib/* dist/
-  cd dist
-  zip -r archive.zip *
-  mv archive.zip ..
-  cd ..
-  rm -rf dist
-  popd
-}
-
 function deploy_bundle {
   for fn in `ls conf/lambda/functions`; do
     aws --profile $profile lambda update-function-code \
       --function-name $fn \
       --zip-file "fileb://services/archive.zip" > conf/lambda/functions/$fn/info.json
   done
-}
-
-function test_services() {
-  check_node_deps
-  cd services
-  if [[ ! -x node_modules/.bin/jasmine ]]; then
-    npm install || exit 1
-  fi
-  export PATH=node_modules/.bin:${PATH}
-  NODE_PATH=./lib jasmine
-  cd ..
 }
 
 function create_iam_role() {
@@ -256,110 +223,10 @@ function create_lambda_service() {
   fi
 }
 
-function help() {
-  echo "#################################################"
-  echo "# Serverless Single Page Apps - The Bash Helper #"
-  echo "#################################################"
-  echo 
-  echo "Usage: sspa <action> [arguments...]"
-  echo 
-  echo "Where <action> is one of:"
-  echo "    server"
-  echo "    liveserver"
-  echo "    create_bucket <bucket name>"
-  echo "    deploy_bucket <bucket name>"
-  echo "    create_pool <config dir>"
-  echo "    create_table <config dir> <pool name>"
-  echo "    test"
-  echo "    build_bundle"
-  echo "    deploy_bundle"
-  echo "    create_service <config file>"
-  #echo "    create_gateway <config_file> <service> - Attach an API Gateway to a service"
-  echo 
-}
-
-action=${1:-"help"}
+check_python
 
 cd "$root_dir"
 
-check_python
-
-case "$action" in
-  liveserver)
-    livereload_server
-    ;;
-
-  server)
-    dev_server
-    ;;
-
-  test)
-    test_services
-    ;;
-
-  build_bundle)
-    build_bundle
-    ;;
-
-  deploy_bundle)
-    check_aws
-    build_bundle
-    deploy_bundle
-    ;;
-
-  create_bucket)
-    check_aws
-    if [[ $# -eq 2 ]]; then
-      create_s3_bucket ${2}
-      webify_bucket ${2}
-    else
-      echo "Please specify a bucket name"
-      exit 1
-    fi
-    ;;
-
-  deploy_bucket)
-    check_aws
-    if [[ $# -eq 2 ]]; then
-      deploy_s3_bucket ${2}
-    else
-      echo "Please specify an S3 bucket name"
-      exit 1
-    fi
-    ;;
-
-  create_pool)
-    check_aws
-    if [[ $# -eq 2 ]]; then
-      create_identity_pool ${2}
-    else
-      echo "Please specify a Cognito identity pool configuration directory" 
-      exit 1
-    fi
-    ;;
-
-  create_table)
-    check_aws
-    if [[ $# -eq 3 ]]; then
-      create_table ${2} ${3}
-    else
-      echo "Please specify a DynamoDB table configuration directory and identity pool name" 
-      exit 1
-    fi
-    ;;
-
-  create_service)
-    check_aws
-    if [[ $# -eq 2 ]]; then
-      build_bundle
-      create_lambda_service ${2}
-    else
-      echo "Please specify a Lambda config directory" 
-      exit 1
-    fi
-    ;;
-
-  *)
-    help
-    ;;
-esac
+create_lambda_service conf/lambda/functions/roll
+#make bundle
+#deploy_bundle
