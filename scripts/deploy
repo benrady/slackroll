@@ -3,9 +3,10 @@
 abspath="$(cd "${0%/*}" 2>/dev/null; echo "$PWD"/"${0##*/}")"
 bin_dir=`dirname "$abspath"`
 root_dir=`dirname $bin_dir`
-app_name=learnjs
+app_name=`basename $root_dir`
 code_bucket=${app_name}/_code_bundles
 profile=admin
+export AWS_DEFAULT_PROFILE=admin
 
 function check_python() {
   if ! which python > /dev/null; then
@@ -19,8 +20,8 @@ function check_aws() {
     echo "Can't find AWS CLI. Install 'awscli' using pip."
     exit 1
   fi
-  if ! aws configure list --profile $profile > /dev/null; then
-    echo "Run \`aws configure --profile $profile\` to create it"
+  if ! aws configure list > /dev/null; then
+    echo "Run \`aws configure --profile $AWS_DEFAULT_PROFILE\` to create it"
     exit 1
   fi
 }
@@ -122,8 +123,8 @@ DOC
 
 function create_cognito_auth_role() {
   local identity_pool_dir=$1
-  local pool_id=$(support/jsed.py ${identity_pool_dir}/pool_info.json 'IdentityPoolId')
-  local pool_name=$(support/jsed.py ${identity_pool_dir}/pool_info.json 'IdentityPoolName')
+  local pool_id=$(scripts/jsed.py ${identity_pool_dir}/pool_info.json 'IdentityPoolId')
+  local pool_name=$(scripts/jsed.py ${identity_pool_dir}/pool_info.json 'IdentityPoolName')
   generate_assume_role_policy ${pool_id} > ${identity_pool_dir}/assume_role_policy.json
   if [[ ! -s ${identity_pool_dir}/role_info.json ]]; then
     local role_name="${pool_name}_cognito_authenticated"
@@ -154,8 +155,8 @@ function create_identity_pool() {
   fi
   create_cognito_auth_role ${identity_pool_dir}
 
-  local pool_id=$(support/jsed.py ${identity_pool_dir}/pool_info.json 'IdentityPoolId')
-  local role_arn=$(support/jsed.py ${identity_pool_dir}/role_info.json 'Role.Arn')
+  local pool_id=$(scripts/jsed.py ${identity_pool_dir}/pool_info.json 'IdentityPoolId')
+  local role_arn=$(scripts/jsed.py ${identity_pool_dir}/role_info.json 'Role.Arn')
   echo "Updating identity pool roles"
   aws --profile $profile cognito-identity set-identity-pool-roles \
     --identity-pool-id ${pool_id} \
@@ -173,7 +174,7 @@ function create_table() {
       > ${table_dir}/table_info.json
   fi
 
-  local table_arn=$(support/jsed.py ${table_dir}/table_info.json 'TableDescription.TableArn')
+  local table_arn=$(scripts/jsed.py ${table_dir}/table_info.json 'TableDescription.TableArn')
   generate_table_policy ${table_arn} > ${table_dir}/role_policy.json
   aws --profile $profile iam put-role-policy \
     --policy-document file://${table_dir}/role_policy.json \
@@ -195,38 +196,41 @@ function create_iam_role() {
   local policy_document=$2
   mkdir -p $role_dir
   if [[ ! -e ${role_dir}/info.json ]]; then
-    aws --profile $profile iam create-role \
+    aws iam create-role \
       --role-name "$role_name" \
       --assume-role-policy-document "${policy_document}" \
       > ${role_dir}/info.json
+    echo -n "Waiting for IAM Role to become available..."
+    while ! aws --profile $profile iam get-role --role-name ${role_name} &> /dev/null; do
+      echo -n .
+    done
+    echo "...done!"
   fi
 }
 
-function create_lambda_service() {
-  local service_dir=${1%/}
-  local function_name=$(basename $service_dir)
+function create_lambda_services() {
   create_iam_role lambda_exec "file://conf/iam/policies/lambda_trust.json"
-  echo -n "Waiting for IAM Role to become available..."
-  local role_arn=$(support/jsed.py conf/iam/roles/${app_name}_lambda_exec/info.json 'Role.Arn')
-  while ! aws --profile $profile iam get-role --role-name ${app_name}_lambda_exec &> /dev/null; do
-    echo -n .
+  local role_arn=$(scripts/jsed.py conf/iam/roles/${app_name}_lambda_exec/info.json 'Role.Arn')
+  echo "Creating lambda functions..."
+  for function_name in `ls conf/lambda/functions/`; do
+    local service_dir=conf/lambda/functions/$function_name
+    if [[ ! -e ${service_dir}/info.json ]]; then
+      echo "  ${app_name}_${function_name}"
+      aws lambda create-function \
+        --function-name ${app_name}_${function_name} \
+        --role ${role_arn} \
+        --zip-file "fileb://archive.zip" \
+        --handler "${app_name}/${function_name}.handler" \
+        --cli-input-json "file://${service_dir}/config.json" \
+        > ${service_dir}/info.json
+    fi
   done
-  echo "...done!"
-  if [[ ! -e ${service_dir}/info.json ]]; then
-    aws --profile $profile lambda create-function \
-      --function-name ${function_name} \
-      --role ${role_arn} \
-      --zip-file "fileb://services/archive.zip" \
-      --handler "index.${function_name}" \
-      --cli-input-json "file://${service_dir}/config.json" \
-      > ${service_dir}/info.json
-  fi
 }
 
 check_python
 
 cd "$root_dir"
 
-create_lambda_service conf/lambda/functions/roll
-#make bundle
+make dist || exit 1
+create_lambda_services
 #deploy_bundle

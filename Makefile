@@ -36,4 +36,4 @@ dist: archive.zip
 
 deploy: dist
 	@echo "Deploying Lambda Function"
-	./bin/deploy
+	./scripts/deploy
