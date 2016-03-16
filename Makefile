@@ -19,7 +19,7 @@ $(testdeps) : $(deps)
 	pip install pytest -t $(testdeps)
 
 test: $(testdeps)
-	python .testdeps/pytest.py --color=yes test
+	./scripts/test
 
 clean: 
 	rm -rf dist
@@ -35,5 +35,5 @@ archive.zip: $(deps) clean
 dist: archive.zip
 
 deploy: dist
-	@echo "Deploying Lambda Function"
+	@echo "Deploying Lambda Functions"
 	./scripts/deploy

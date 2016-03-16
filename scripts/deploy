@@ -184,9 +184,9 @@ function create_table() {
 
 function deploy_bundle {
   for fn in `ls conf/lambda/functions`; do
-    aws --profile $profile lambda update-function-code \
-      --function-name $fn \
-      --zip-file "fileb://services/archive.zip" > conf/lambda/functions/$fn/info.json
+    aws lambda update-function-code \
+      --function-name ${app_name}_${fn} \
+      --zip-file "fileb://archive.zip" > conf/lambda/functions/$fn/info.json
   done
 }
 
@@ -211,11 +211,10 @@ function create_iam_role() {
 function create_lambda_services() {
   create_iam_role lambda_exec "file://conf/iam/policies/lambda_trust.json"
   local role_arn=$(scripts/jsed.py conf/iam/roles/${app_name}_lambda_exec/info.json 'Role.Arn')
-  echo "Creating lambda functions..."
   for function_name in `ls conf/lambda/functions/`; do
     local service_dir=conf/lambda/functions/$function_name
     if [[ ! -e ${service_dir}/info.json ]]; then
-      echo "  ${app_name}_${function_name}"
+      echo "Creating Lambda Function:  ${app_name}_${function_name}"
       aws lambda create-function \
         --function-name ${app_name}_${function_name} \
         --role ${role_arn} \
@@ -233,4 +232,4 @@ cd "$root_dir"
 
 make dist || exit 1
 create_lambda_services
-#deploy_bundle
+deploy_bundle

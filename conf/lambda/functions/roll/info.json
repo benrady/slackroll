@@ -1,13 +1,13 @@
 {
-    "CodeSha256": "8snJ2jZfuq0rLoAr5J87LKHjF2KSImNZQOXgEEKgUrU=", 
+    "CodeSha256": "au8m7MVcHQM6i0/CmD60PJG6HP4uIiZf22ONWA7Gy3Y=", 
     "FunctionName": "slackroll_roll", 
-    "CodeSize": 4458869, 
+    "CodeSize": 4459614, 
     "MemorySize": 128, 
     "FunctionArn": "arn:aws:lambda:us-east-1:730171000947:function:slackroll_roll", 
-    "Version": "1", 
+    "Version": "$LATEST", 
     "Role": "arn:aws:iam::730171000947:role/slackroll_lambda_exec", 
     "Timeout": 5, 
-    "LastModified": "2016-03-16T03:57:27.647+0000", 
+    "LastModified": "2016-03-16T13:59:25.373+0000", 
     "Handler": "slackroll/roll.handler", 
     "Runtime": "python2.7", 
     "Description": ""
