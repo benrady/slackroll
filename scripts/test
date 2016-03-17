@@ -8,10 +8,10 @@ source $bin_dir/aws
 cd $bin_dir/..
 
 init_env dev
+export PYTHONPATH=.
 
 if [[ -x `which entr` ]]; then
   ls slackroll/*.py test/*.py | entr -c py.test --color=yes test
 else
   py.test --color=yes test
 fi
-
