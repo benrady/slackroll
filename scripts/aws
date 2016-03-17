@@ -124,4 +124,14 @@ function create_lambda_services() {
   done
 }
 
+function build_bundle() {
+  mkdir -p dist
+  cp -r ${VIRTUAL_ENV}/lib/python*/site-packages/* dist/
+  cp -r slackroll dist/
+  pushd dist
+  zip -r ../archive.zip *
+  popd
+  rm -rf dist
+}
+
 # vim: ft=sh

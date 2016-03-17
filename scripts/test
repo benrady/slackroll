@@ -8,10 +8,12 @@ source $bin_dir/aws
 cd $bin_dir/..
 
 init_env dev
+
+# The current directory is included in PYTHONPATH on OS X, but not Linux
 export PYTHONPATH=.
 
 if [[ -x `which entr` ]]; then
-  ls slackroll/*.py test/*.py | entr -c py.test --color=yes test
+  ls slackroll/*.py test/*.py | entr py.test --color=yes test
 else
   py.test --color=yes test
 fi

@@ -8,6 +8,10 @@ source $bin_dir/aws
 
 cd "$root_dir"
 
-check_env
+init_env prod
+
+build_bundle
 create_lambda_services
 deploy_bundle
+
+curl -d "channel_name=pbp&user_name=Brian&text=1d20%20%2B%204" https://to8vpiu5b7.execute-api.us-east-1.amazonaws.com/prod/slackroll_roll
