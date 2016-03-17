@@ -5,31 +5,33 @@ PATH  := node_modules/.bin:$(PATH)
 .PHONY: all clean test dist deps
 
 testdeps = .testdeps
-deps = .deps
+env = .env
 
 # The default target
 all: clean test
 
-$(deps) :
+# This needs to be smarter. It doesn't install if the directory exists
+# Maybe create a setup.py?
+deps: $(env)
 	mkdir -p $(deps)
-	pip install boto3 -t $(deps)
+	pip install boto3
+	pip install diceroll
 
-$(testdeps) : $(deps)
-	mkdir -p $(testdeps)
-	pip install pytest -t $(testdeps)
+testdeps : deps
+	pip install pytest
 
-test: $(testdeps)
+test: testdeps
 	./scripts/test
 
 clean: 
 	rm -rf dist
 	rm -rf archive.zip
 
-archive.zip: $(deps) clean
+archive.zip: deps clean
 	mkdir -p dist
 	cp -r $(deps) dist/
 	cp -r slackroll dist/
-	cd dist; zip -r ../archive.zip * $(deps)
+	cd dist; zip -r ../archive.zip *
 	rm -rf dist
 
 dist: archive.zip

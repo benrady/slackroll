@@ -1,0 +1,127 @@
+abspath="$(cd "${0%/*}" 2>/dev/null; echo "$PWD"/"${0##*/}")"
+bin_dir=`dirname "$abspath"`
+root_dir=`dirname $bin_dir`
+app_name=`basename $root_dir`
+code_bucket=${app_name}/_code_bundles
+export AWS_DEFAULT_PROFILE=admin
+
+function init_env() {
+  local env_name=$1
+  if [[ -z ${env_name} ]]; then
+    echo "You must specify an environment name, like \`init_env dev\`"
+    exit 1
+  fi
+  local env_dir=$root_dir/.env-${env_name}
+  if ! which virtualenv > /dev/null; then
+    echo "Can't find virtualenv. Run \`pip install virtualenv\` to continue."
+    exit 1
+  fi
+  if [[ ! -d ${env_dir} ]]; then
+    echo "Installing ${env_name} environment into ${env_dir}"
+    virtualenv ${env_dir}
+  fi
+  source ${env_dir}/bin/activate
+  pip install -r dependencies.${env_name}
+}
+
+function check_aws() {
+  if ! which aws > /dev/null; then
+    echo "Can't find AWS CLI. Run \`pip install virtualenv\` to continue."
+    exit 1
+  fi
+  if ! aws configure list > /dev/null; then
+    echo "Run \`aws configure --profile $AWS_DEFAULT_PROFILE\` to create it"
+    exit 1
+  fi
+}
+
+function generate_table_policy() {
+  local table_arn=$1
+cat <<DOC
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:Query",
+        "dynamodb:UpdateItem"
+      ],
+      "Resource": ["${table_arn}"],
+      "Condition": {
+        "ForAllValues:StringEquals": {
+          "dynamodb:LeadingKeys": ["\${cognito-identity.amazonaws.com:sub}"]}
+    }
+  }]
+}
+DOC
+}
+
+function create_table() {
+  local table_dir=${1%/}
+  local table_name=$(basename $table_dir)
+  local role_name="${2}_cognito_authenticated"
+  if [[ ! -s ${table_dir}/table_info.json ]]; then
+    aws dynamodb create-table \
+      --table-name $table_name \
+      --cli-input-json "file://${table_dir}/config.json" \
+      > ${table_dir}/table_info.json
+  fi
+
+  local table_arn=$(scripts/jsed.py ${table_dir}/table_info.json 'TableDescription.TableArn')
+  generate_table_policy ${table_arn} > ${table_dir}/role_policy.json
+  aws iam put-role-policy \
+    --policy-document file://${table_dir}/role_policy.json \
+    --role-name ${role_name} \
+    --policy-name ${table_name}_table_access
+}
+
+function deploy_bundle {
+  for fn in `ls conf/lambda/functions`; do
+    aws lambda update-function-code \
+      --function-name ${app_name}_${fn} \
+      --zip-file "fileb://archive.zip" > conf/lambda/functions/$fn/info.json
+  done
+}
+
+function create_iam_role() {
+  local role_name="${app_name}_lambda_exec"
+  local role_dir=conf/iam/roles/${role_name}
+  local policy_document=$2
+  mkdir -p $role_dir
+  if [[ ! -e ${role_dir}/info.json ]]; then
+    aws iam create-role \
+      --role-name "$role_name" \
+      --assume-role-policy-document "${policy_document}" \
+      > ${role_dir}/info.json
+    echo -n "Waiting for IAM Role to become available..."
+    while ! aws iam get-role --role-name ${role_name} &> /dev/null; do
+      echo -n .
+    done
+    echo "...done!"
+  fi
+}
+
+function create_lambda_services() {
+  create_iam_role lambda_exec "file://conf/iam/policies/lambda_trust.json"
+  local role_arn=$(scripts/jsed.py conf/iam/roles/${app_name}_lambda_exec/info.json 'Role.Arn')
+  for function_name in `ls conf/lambda/functions/`; do
+    local service_dir=conf/lambda/functions/$function_name
+    if [[ ! -e ${service_dir}/info.json ]]; then
+      echo "Creating Lambda Function:  ${app_name}_${function_name}"
+      aws lambda create-function \
+        --function-name ${app_name}_${function_name} \
+        --role ${role_arn} \
+        --zip-file "fileb://archive.zip" \
+        --handler "${app_name}/${function_name}.handler" \
+        --cli-input-json "file://${service_dir}/config.json" \
+        > ${service_dir}/info.json
+    fi
+  done
+}
+
+# vim: ft=sh

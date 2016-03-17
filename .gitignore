@@ -8,3 +8,4 @@ master
 __pycache__
 *.pyc
 archive.zip
+.env*

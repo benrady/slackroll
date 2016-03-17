@@ -1,0 +1,4 @@
+-r dependencies.prod
+pytest == 2.9.0
+awscli == 1.10.13
+pytest-mock == 0.11.0
