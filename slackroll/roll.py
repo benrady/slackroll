@@ -5,6 +5,7 @@ logger = logging.getLogger()
 
 from urlparse import parse_qs
 import diceroll
+import re
 
 def handler(event, context):
     logger.info('got event{}'.format(event))
@@ -14,16 +15,31 @@ def handler(event, context):
     user = params['user_name'][0]
     channel = params['channel_name'][0]
     command_text = params['text'][0]
-    result = roll_result(command_text)
+    result = roll_expr(command_text)
     return {
         "response_type": "in_channel",
         "text": user + " rolled " + command_text + " and got: " + str(sum(result)),
         "attachments": [
             {
-                "text":"Details: " + " + ".join([str(x) for x in result])
+                "text":roll_details(result)
             }
         ]
     }
+
+def roll_details(result):
+    parts = [annotate(part) for part in result]
+    return ":mag_right: " + " + ".join(parts)
+
+def annotate(part):
+    if (part == 20):
+        return "(20)"
+    if (part == 1):
+        return "[1]"
+    return str(part)
+
+def roll_expr(text):
+    parts = re.split("\+", text)
+    return [sum(roll_result(x)) for x in parts]
 
 def roll_result(expr):
     result = diceroll.roll(expr)
