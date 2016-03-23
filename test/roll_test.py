@@ -8,7 +8,7 @@ def event(text="1d20 + 4"):
     return { "body": urlencode({
         "channel_name": "pbp", 
         "user_name": "Brian", 
-        "text": "1d20 + 4"})}
+        "text": text})}
 
 @patch('diceroll.roll')
 def test_displays_roll_result_as_text(mock):
@@ -39,4 +39,9 @@ def test_result(mock):
     mock.side_effect = [[3], [2, 5], 3]
     text = 'd6 + 2d8 +   3  '
     assert roll.roll_expr(text) == [3, 7, 3]
+
+def test_returns_help_on_error():
+    assert roll.handler(event("fubar"), {})['text'] == "Slackroller cannot roll 'fubar'"
+
+     
     
