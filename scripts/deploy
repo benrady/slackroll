@@ -14,4 +14,4 @@ build_bundle
 create_lambda_services
 deploy_bundle
 
-curl -d "channel_name=pbp&user_name=Brian&text=1d20%20%2B%204" https://to8vpiu5b7.execute-api.us-east-1.amazonaws.com/prod/slackroll_roll
+curl -d "channel_name=pbp&user_name=Brian&text=1d20%20%2B%204" https://to8vpiu5b7.execute-api.us-east-1.amazonaws.com/prod/slackroll_roll | python -m json.tool

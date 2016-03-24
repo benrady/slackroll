@@ -47,6 +47,8 @@ def annotate(part):
     return str(part)
 
 def roll_expr(text):
+    if "(" in text:
+        return roll_result(text)
     parts = re.split("\+", text)
     return [sum(roll_result(x)) for x in parts]
 
