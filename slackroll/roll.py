@@ -59,4 +59,8 @@ def roll_result(expr):
     return result
 
 if __name__ == '__main__':
-    print handler({'body': sys.argv[1]}, {})
+    import urllib
+    print handler({ "body": urllib.urlencode({
+        "channel_name": "pbp", 
+        "user_name": "Brian", 
+        "text": sys.argv[1]})}, {})
