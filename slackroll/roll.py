@@ -16,21 +16,24 @@ def handler(event, context):
     channel = params['channel_name'][0]
     command_text = params['text'][0]
     try:
-        result = roll_expr(command_text)
-        return {
-            "response_type": "in_channel",
-            "text": user + " rolled " + command_text + " and got: " + str(sum(result)),
-            "attachments": [
-                {
-                    "text":roll_details(result)
-                }
-            ]
-        }
+        return resolve_expr(user, command_text)
     except diceroll.ParseException:
         return {
             "response_type": "in_channel",
             "text": "Slackroller cannot roll '" + command_text + "'"
         }
+
+def resolve_expr(user, dice):
+    result = roll_expr(dice)
+    return {
+        "response_type": "in_channel",
+        "text": user + " rolled " + dice + " and got: " + str(sum(result)),
+        "attachments": [
+            {
+                "text":roll_details(result)
+            }
+        ]
+    }
 
 def roll_details(result):
     parts = [annotate(part) for part in result]
