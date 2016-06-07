@@ -43,7 +43,7 @@ def annotate(part):
     if (part == 20):
         return "(20)"
     if (part == 1):
-        return "[1]"
+        return "[Jeff]"
     return str(part)
 
 def roll_expr(text):

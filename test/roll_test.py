@@ -32,7 +32,7 @@ def test_recognizes_critical_hits(roll_mock):
 @patch('diceroll.roll')
 def test_recognizes_critical_misses(roll_mock):
     roll_mock.side_effect = [[1], 4]
-    assert roll.handler(event(), {})["attachments"][0]["text"] == ":mag_right: [1] + 4"
+    assert roll.handler(event(), {})["attachments"][0]["text"] == ":mag_right: [Jeff] + 4"
 
 @patch('diceroll.roll')
 def test_result(roll_mock):
